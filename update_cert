@@ -1,0 +1,39 @@
+:global hostname do={:put [/system identity get name]}
+:global certname;
+:set certname "local_ssl";
+:global fullchainname;
+:set fullchainname "fullchain.pem";
+:global privkeyname;
+:set privkeyname "privkey.pem";
+:global email;
+:set email "g@sokolachko.com";
+:global sendmail do={/tool e-mail send to=$1 subject="$subj" body="$text @$hostname" start-tls=tls-only}
+
+
+:if ([:len [/certificate find where expired name=$certname]] != 0) do {
+:put "Certificate was expired!"
+#/tool e-mail send to=$email subject="Expired certificate" body="Expired certificate @" start-tls=tls-only
+$sendmail subj="Certificate expired" text="Expired ssl certificate" $email
+} 
+
+:foreach v in={$fullchainname; $privkeyname} do={
+:if ([:len [/file find where name="$v"]] = 0) do {
+$sendmail subj="Certificate update error" text="Something went wrong with uploading certificate files" $email
+:error "Can`t find files"
+}}
+
+/certificate remove [/certificate find where name=$certname]
+
+:delay 1
+
+:foreach v in={$fullchainname; $privkeyname} do={
+:if ([:len [/file find where name="$v"]] != 0) do {
+/certificate import file-name="$v" passphrase=""
+:delay 1
+/file remove [/file find where name="$v"]
+:delay 1
+}}
+
+/certificate set fullchain.pem_0 name=$certname
+/ip service set www-ssl certificate=$certname
+:put "New certificate installed! Cleaning done..."
