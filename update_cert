@@ -1,39 +1,46 @@
-:global hostname do={:put [/system identity get name]}
-:global certname;
-:set certname "local_ssl";
-:global fullchainname;
-:set fullchainname "fullchain.pem";
-:global privkeyname;
-:set privkeyname "privkey.pem";
-:global email;
-:set email "g@sokolachko.com";
-:global sendmail do={/tool e-mail send to=$1 subject="$subj" body="$text @$hostname" start-tls=tls-only}
+# set on letsencrypt host something like this:
+# @weekly scp /etc/letsencrypt/live/gate.sokogen.ru/fullchain.pem /etc/letsencrypt/live/gate.sokogen.ru/privkey.pem automation@gate.sokogen.ru:/ && ssh automation@gate.sokogen.ru "/system script run install_ssl_cert"
 
+:local hostname do={:put [/system identity get name]}
+:local certname "local_ssl";
+:local fullchainname "fullchain.pem";
+:local privkeyname "privkey.pem";
+:local fromaddr "gate@domain";
+:local emailaddr "admin@domain";
+
+:local sendmail do={
+    /tool e-mail send to=$addr subject=$subj from=$fromaddr body="$text @$hostname" start-tls=tls-only
+};
 
 :if ([:len [/certificate find where expired name=$certname]] != 0) do {
-:put "Certificate was expired!"
-#/tool e-mail send to=$email subject="Expired certificate" body="Expired certificate @" start-tls=tls-only
-$sendmail subj="Certificate expired" text="Expired ssl certificate" $email
-} 
+    :log error "Certificate was expired!" ;
+    $sendmail addr=$emailaddr subj="Certificate expired" text="Expired ssl certificate" ;
+}
 
 :foreach v in={$fullchainname; $privkeyname} do={
-:if ([:len [/file find where name="$v"]] = 0) do {
-$sendmail subj="Certificate update error" text="Something went wrong with uploading certificate files" $email
-:error "Can`t find files"
-}}
+    :if ( [ :len [/file find where name="$v" ] ] = 0 ) do {
+        $sendmail addr=$emailaddr subj="Certificate update error" text="Something went wrong with uploading certificate files" ;
+        :log error "Can`t find files" ;
+    }
+}
 
-/certificate remove [/certificate find where name=$certname]
+/certificate remove [ /certificate find where name=$certname ] ;
 
-:delay 1
+:delay 1 ;
 
 :foreach v in={$fullchainname; $privkeyname} do={
-:if ([:len [/file find where name="$v"]] != 0) do {
-/certificate import file-name="$v" passphrase=""
-:delay 1
-/file remove [/file find where name="$v"]
-:delay 1
-}}
+    :if ( [ :len [ /file find where name="$v" ] ] != 0 ) do {
+        /certificate import file-name="$v" passphrase="" ;
+        :delay 1 ;
+        /file remove [/file find where name="$v"] ;
+        :delay 1 ;
+    }
+}
 
 /certificate set fullchain.pem_0 name=$certname
 /ip service set www-ssl certificate=$certname
-:put "New certificate installed! Cleaning done..."
+
+$sendmail addr=$emailaddr subj="Certificate updated" text="Updated ssl certificate" ;
+
+:log info "New certificate installed! Cleaning done..."
+
