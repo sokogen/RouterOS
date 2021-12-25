@@ -1,0 +1,29 @@
+:local URL "https://assets.zoom.us/docs/ipranges/Zoom.txt";
+:local commtext "zoom.us";
+
+:local lineEnd 0;
+:local ipaddress "";
+:local lastEnd 0;
+
+:local iprangesRaw [/tool fetch url=$URL as-value output=user] ;
+:local iprangesLen [:len ($iprangesRaw->"data")];
+:if ($iprangesRaw->"status" = "finished") do={
+    :if ($iprangesRaw->"data" = "0") do={
+        :error "zoom.us return empty ip_ranges list";
+    } else={
+        /ip firewall address-list remove [/ip firewall address-list find comment=$commtext];
+        :local ipaddressData ($iprangesRaw->"data");
+        :do {
+            :set lineEnd [:find $ipaddressData "\n" $lastEnd ] ;
+            :set ipaddress [:pick $ipaddressData $lastEnd $lineEnd] ;
+            :set lastEnd ( $lineEnd + 1 ) ;
+            #If the ipaddress doesn't start with a hash then process and add to the list
+            :if ( [:pick $ipaddress 0 1] != "#" ) do={
+                :if ( :tobool [:toip [:pick  $ipaddress 0 [:find  $ipaddress "/"]]] ) do={
+                    /ip firewall address-list add list=to_vpn comment=$commtext address=$ipaddress
+                }
+            }
+        } while ($lastEnd < $iprangesLen)
+    }
+}
+
