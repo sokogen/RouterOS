@@ -1,7 +1,7 @@
 # set on letsencrypt host something like this:
 # @weekly scp /etc/letsencrypt/live/gate.sokogen.ru/fullchain.pem /etc/letsencrypt/live/gate.sokogen.ru/privkey.pem automation@gate.sokogen.ru:/ && ssh automation@gate.sokogen.ru "/system script run install_ssl_cert"
 
-:local hostname do={:put [/system/identity get name]}
+:local hostname [/system/identity get name]
 :local certname "local_ssl";
 :local fullchainname "fullchain.pem";
 :local privkeyname "privkey.pem";
@@ -9,18 +9,22 @@
 :local emailaddr "admin@domain";
 
 :local sendmail do={
-    /tool/e-mail send to=$addr subject=$subj from=$fromaddr body="$text @$hostname" tls=yes
+    /tool/e-mail send to=$addr subject=$subj from=$fromaddr body="$text @$host" tls=yes
 };
 
 :if ([:len [/certificate find where expired name=$certname]] != 0) do {
     :log error "Certificate was expired!" ;
-    $sendmail addr=$emailaddr subj="Certificate expired" text="Expired ssl certificate" ;
+    :local subj "Certificate expired" ;
+    :local text "Expired ssl certificate" ;
+    $sendmail addr=$emailaddr subj=$subj text=$text host=$hostname;
 }
 
 :foreach v in={$fullchainname; $privkeyname} do={
     :if ( [ :len [/file find where name="$v" ] ] = 0 ) do {
-        $sendmail addr=$emailaddr subj="Certificate update error" text="Something went wrong with uploading certificate files" ;
         :log error "Can`t find files" ;
+        :local subj "Certificate update error" ;
+        :local text "Something went wrong with uploading certificate files" ;
+        $sendmail addr=$emailaddr subj=$subj text=$text host=$hostname;
     }
 }
 
@@ -40,6 +44,9 @@
 /certificate set fullchain.pem_0 name=$certname
 /ip/service set www-ssl certificate=$certname
 
-$sendmail addr=$emailaddr subj="Certificate updated" text="Updated ssl certificate" ;
+:local subj "Certificate updated" ;
+:local text "Updated ssl certificate" ;
+$sendmail addr=$emailaddr subj=$subj text=$text host=$hostname;
 
 :log info "New certificate installed! Cleaning done..."
+
