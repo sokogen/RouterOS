@@ -11,7 +11,7 @@
     :if ($iprangesRaw->"data" = "0") do={
         :error "zoom.us return empty ip_ranges list";
     } else={
-        /ip/firewall/address-list remove [/ip/firewall/address-list find comment=$commtext];
+        /ip firewall address-list remove [/ip firewall address-list find comment=$commtext];
         :local ipaddressData ($iprangesRaw->"data");
         :do {
             :set lineEnd [:find $ipaddressData "\n" $lastEnd ] ;

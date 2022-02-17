@@ -1,7 +1,7 @@
 # set on letsencrypt host something like this:
 # @weekly scp /etc/letsencrypt/live/gate.sokogen.ru/fullchain.pem /etc/letsencrypt/live/gate.sokogen.ru/privkey.pem automation@gate.sokogen.ru:/ && ssh automation@gate.sokogen.ru "/system script run install_ssl_cert"
 
-:local hostname do={:put [/system/identity get name]}
+:local hostname do={:put [/system identity get name]}
 :local certname "local_ssl";
 :local fullchainname "fullchain.pem";
 :local privkeyname "privkey.pem";
@@ -9,7 +9,7 @@
 :local emailaddr "admin@domain";
 
 :local sendmail do={
-    /tool/e-mail send to=$addr subject=$subj from=$fromaddr body="$text @$hostname" tls=yes
+    /tool e-mail send to=$addr subject=$subj from=$fromaddr body="$text @$hostname" start-tls=tls-only
 };
 
 :if ([:len [/certificate find where expired name=$certname]] != 0) do {
@@ -38,8 +38,9 @@
 }
 
 /certificate set fullchain.pem_0 name=$certname
-/ip/service set www-ssl certificate=$certname
+/ip service set www-ssl certificate=$certname
 
 $sendmail addr=$emailaddr subj="Certificate updated" text="Updated ssl certificate" ;
 
 :log info "New certificate installed! Cleaning done..."
+
